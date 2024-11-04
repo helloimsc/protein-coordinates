@@ -1,5 +1,6 @@
 # script for diffusion protocols
 import torch
+import torch.nn as nn
 import pickle
 import numpy as np
 import os
@@ -12,38 +13,18 @@ import time
 
 torch.set_printoptions(sci_mode=False)
 
-
-def get_beta_schedule(T, b0, bT, schedule_type, schedule_params={}, inference=False):
-    """
-    Given a noise schedule type, create the beta schedule
-    """
-    assert schedule_type in ["linear"]
-
-    # Adjust b0 and bT if T is not 200
-    # This is a good approximation, with the beta correction below, unless T is very small
-    assert T >= 15, "With discrete time and T < 15, the schedule is badly approximated"
-    b0 *= 200 / T
-    bT *= 200 / T
-
-    # linear noise schedule
-    if schedule_type == "linear":
-        schedule = torch.linspace(b0, bT, T)
-
-    else:
-        raise NotImplementedError(f"Schedule of type {schedule_type} not implemented.")
-
-    # get alphabar_t for convenience
-    alpha_schedule = 1 - schedule
-    alphabar_t_schedule = torch.cumprod(alpha_schedule, dim=0)
-
-    if inference:
-        print(
-            f"With this beta schedule ({schedule_type} schedule, beta_0 = {round(b0, 3)}, beta_T = {round(bT,3)}), alpha_bar_T = {alphabar_t_schedule[-1]}"
-        )
-
-    return schedule, alpha_schedule, alphabar_t_schedule
-
-
+class GaussNoise(nn.Module):
+#The default values as specifed by the DDPM paper(https://arxiv.org/pdf/2006.11239) are constants chosen to be small relative to data scaled to [−1, 1]    
+    def __init__(self, T=1000 , b_initial=10**(-4), b_final=0.02):
+        super().__init__()
+        self.beta = torch.linspace(b_initial,b_final,T)
+        
+    def forward(self, x_t1, t1, t2):
+        a_mul = torch.prod(1-self.beta[t1:t2+1])
+        eps = torch.normal(mean=torch.zeros_like(x_t1),std=torch.ones_like(x_t1))
+        x_t2 = torch.sqrt(a_mul)*x_t1 + torch.sqrt(1-a_mul)*eps
+    
+        return x_t2
 
 def write_pkl(save_path: str, pkl_data):
     """Serialize data into a pickle file."""
@@ -311,11 +292,10 @@ class IGSO3:
         sigma_idcs = [self.t_to_idx(t) for t in ts]
         return self.igso3_vals["exp_score_norms"][sigma_idcs]
 
-    def diffuse_frames(self, rot, diffusion_mask=None):
+    def diffuse_frames(self, n_aa, diffusion_mask=None):
         """diffuse_frames samples from the IGSO(3) distribution to noise frames
 
         Parameters:
-            rot (np.array or torch.tensor, required): (L,3,3) set of rotation matrix
             mask (np.array or torch.tensor, required): (L,) set of bools. True/1 is NOT diffused, False/0 IS diffused
         Returns:
             np.array : N/CA/C coordinates for each residue
@@ -324,10 +304,9 @@ class IGSO3:
         #Rotational matrix should be a numpy array
         
         t = np.arange(self.T) + 1  # 1-indexed!!
-        num_res = rot.shape[0]
 
         # Sample rotations and scores from IGSO3
-        sampled_rots = self.sample_vec(t, n_samples=num_res)  # [T, N, 3]
+        sampled_rots = self.sample_vec(t, n_samples=n_aa)  # [T, N, 3]
 
         if diffusion_mask is not None:
             non_diffusion_mask = 1 - diffusion_mask[None, :, None]
@@ -337,11 +316,11 @@ class IGSO3:
         R_sampled = (
             scipy_R.from_rotvec(sampled_rots.reshape(-1, 3))
             .as_matrix()
-            .reshape(self.T, num_res, 3, 3)
+            .reshape(self.T, n_aa, 3, 3)
         )
-        R_perturbed = np.einsum("tnij,njk->tnik", R_sampled, rot)
-
-        return R_perturbed.transpose(1, 0, 2, 3) # [L, T, 3, 3]
+        #R_sampled is of shape (t,n,3,3)
+        return R_sampled 
+        #diff_vectors=torch.einsum('tnij,njk->tnik',diffused,vectors).flatten(start_dim=-2) Shape: t x n_aa x 3
 
     def reverse_sample_vectorized(
         self, R_t, R_0, t, noise_level, mask=None, return_perturb=False

@@ -9,62 +9,7 @@ from Bio.SeqUtils import seq1, seq3
 import dgl
 parser = PDBParser()
 
-#Main Function
-def generate_graph(pdb_path, k):
-    #PDB to Tensors
-    frames, seq = get_backbone(pdb_path)
-    frames = torch.tensor(np.array(frames[0]))
-    i_seq = encode(seq[0]) #This is a tensor of integers size N
-    forward, reverse, side = generate_vector(frames)
-
-    #Construct DGL Graph
-    ca = frames[:,1,:]
-    dist = torch.cdist(frames[,ca,p=2.0)
-    dist, idx=dist.sort()
-    idx = idx[:,:k]
-
-    
-    # Generate Graph (N.B. Need to remove edge to self)
-    n = ca.shape[0]
-    row = torch.arange(0, n).repeat(k)
-    col = idx.flatten()
-    graph = dgl.graph((row,col))
-
-    #Generate Node Features
-    forward, reverse, side = generate_vectors(frames)
-    graph.ndata['forward'] = forward
-    graph.ndata['reverse'] = reverse
-    graph.ndata['side'] = side
-    
-    #Generate Edge Features
-    #Euclidean Distance Embedding
-    rbf_dist = _rbf(dist[:,:k])
-    graph.edata['rbf_dist']=rbf_dist.flatten()
-
-    #Sequential Distance Sinusiodal Embedding
-    t = row-col
-    t = sc_embed(t.unsqueeze(dim=-1))
-    graph.edata['seq_embed'] = t 
-    
-    # Unit Vector 
-    j = ca[row,:]
-    i = ca[col,:]
-    direction = j-i
-    direction = direction/torch.norm(direction,p=2.0,dim=-1)
-    graph.edata['u_vec'] = direction
-    
-    return graph
-
-#Create Pre-defined Variables (Need these to run during import, I'll format later)
-extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO"
-aa_to_int = { ch:i for i,ch in enumerate(extended_protein_letters) }
-int_to_aa = { i:ch for i,ch in enumerate(extended_protein_letters) }
-encode = lambda s: torch.tensor([aa_to_int[c] for c in s])
-decode = lambda l: ''.join([int_to_aa[i] for i in l])
-RESIDUES = PROCESS_RESIDUES(RESIDUES)
-
-#Sub Functions
-
+#Sub-functions
 def PROCESS_RESIDUES(d):
     #X is unknown AA I should check this function to incorporate X
     #Additional AA, B - Asparagine, U - selenocysteine, Z - glutamic
@@ -108,9 +53,9 @@ def generate_vectors(frame):
     reverse = frame[:-1,1,:] - frame[1:,1,:] #This doesn't include the foward vector for the 1th aa
     side = frame[:,3,:] - frame [:,1,:]
     #Normalizing the vectors
-    forward = forward/torch.norm(forward,p=2, dim=-1)
-    reverse = reverse/torch.norm(forward,p=2, dim=-1)
-    side = side/torch.norm(side,p=2,dim=-1)
+    forward = forward/torch.norm(forward,p=2, dim=-1)[:,None]
+    reverse = reverse/torch.norm(forward,p=2, dim=-1)[:,None]
+    side = side/torch.norm(side,p=2,dim=-1)[:,None]
     #Padding, might alter it as these aren't unit vectors
     forward = torch.cat((forward,torch.zeros((1,3))),axis=0)
     reverse = torch.cat((torch.zeros((1,3)),reverse),axis=0)
@@ -142,3 +87,58 @@ def _rbf(D, D_min=0., D_max=20., D_count=16, device='cpu'):
 
     RBF = torch.exp(-((D_expand - D_mu) / D_sigma) ** 2)
     return RBF
+
+#Create pre-defined variables and some small functions
+extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO"
+aa_to_int = { ch:i for i,ch in enumerate(extended_protein_letters) }
+int_to_aa = { i:ch for i,ch in enumerate(extended_protein_letters) }
+encode = lambda s: torch.tensor([aa_to_int[c] for c in s])
+decode = lambda l: ''.join([int_to_aa[i] for i in l])
+RESIDUES = PROCESS_RESIDUES(RESIDUES)
+
+#Main Function
+
+def generate_graph(pdb_path, k=10, rbf_dim=16, sc_dim=24, sc_n=10000):
+    #PDB to Tensors
+    frames, seq = get_backbone(pdb_path)
+    frames = torch.tensor(np.array(frames[0]))
+    i_seq = encode(seq[0]) #This is a tensor of integers size N which represents the type of amino acid
+    forward, reverse, side = generate_vectors(frames)
+
+    #Construct DGL Graph
+    ca = frames[:,1,:]
+    dist = torch.cdist(ca,ca,p=2.0)
+    dist, idx=dist.sort()
+    idx = idx[:,:k]
+
+    
+    # Generate Graph (N.B. Need to remove edge to self)
+    n = ca.shape[0]
+    row = torch.arange(0, n).repeat(k)
+    col = idx.flatten()
+    graph = dgl.graph((row,col))
+
+    #Generate Node Features
+    forward, reverse, side = generate_vectors(frames)
+    graph.ndata['forward'] = forward
+    graph.ndata['reverse'] = reverse
+    graph.ndata['side'] = side
+    
+    #Generate Edge Features
+    #Euclidean Distance Embedding
+    rbf_dist = _rbf(dist[:,:k],D_count=rbf_dim)
+    graph.edata['rbf_dist']=rbf_dist.flatten(end_dim=-2)
+
+    #Sequential Distance Sinusiodal Embedding
+    t = row-col
+    t = sc_embed(t.unsqueeze(dim=-1), embed_dim=sc_dim, n=sc_n)
+    graph.edata['seq_embed'] = t 
+    
+    # Unit Vector 
+    j = ca[row,:]
+    i = ca[col,:]
+    direction = j-i
+    direction = direction/torch.norm(direction,p=2.0,dim=-1)[:,None]
+    graph.edata['u_vec'] = direction
+    
+    return graph, i_seq
