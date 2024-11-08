@@ -155,3 +155,9 @@ def generate_graph(pdb_path, k=10, rbf_dim=16, sc_dim=24, sc_n=10000):
     graph.edata['u_vec'] = direction
     
     return graph, i_seq
+
+def encode_aa(sequence):
+    extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO"
+    aa_to_int = { ch:i for i,ch in enumerate(extended_protein_letters) }
+    i_seq = torch.tensor([aa_to_int[c] + 1 for c in sequence], dtype=torch.int)
+    return i_seq
