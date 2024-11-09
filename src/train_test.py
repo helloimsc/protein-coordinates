@@ -1,15 +1,21 @@
-import wandb
-from equivariant_diffusion.utils import assert_mean_zero_with_mask, remove_mean_with_mask,\
-    assert_correctly_masked, sample_center_gravity_zero_gaussian_with_mask
-import numpy as np
-import qm9.visualizer as vis
-from qm9.analyze import analyze_stability_for_molecules
-from qm9.sampling import sample_chain, sample, sample_sweep_conditional
-import utils
-import qm9.utils as qm9utils
-from qm9 import losses
 import time
+
+import numpy as np
+import src.qm9.utils as qm9utils
+import src.qm9.visualizer as vis
 import torch
+import wandb
+from src.model_utils import *
+
+# from qm9.analyze import analyze_stability_for_molecules
+# from qm9.sampling import sample, sample_chain, sample_sweep_conditional
+from src.models import losses
+from src.models.equivariant_diffusion.utils import (
+    assert_correctly_masked,
+    assert_mean_zero_with_mask,
+    remove_mean_with_mask,
+    sample_center_gravity_zero_gaussian_with_mask,
+)
 
 
 def train_epoch(args, loader, epoch, model, model_dp, model_ema, ema, device, dtype, property_norms, optim,
@@ -22,8 +28,9 @@ def train_epoch(args, loader, epoch, model, model_dp, model_ema, ema, device, dt
         x = data['positions'].to(device, dtype)
         node_mask = data['atom_mask'].to(device, dtype).unsqueeze(2)
         edge_mask = data['edge_mask'].to(device, dtype)
+        i_seq = data['i_seq'].to(device, dtype)
         one_hot = data['one_hot'].to(device, dtype)
-        charges = (data['charges'] if args.include_charges else torch.zeros(0)).to(device, dtype)
+        # charges = (data['charges'] if args.include_charges else torch.zeros(0)).to(device, dtype)
 
         x = remove_mean_with_mask(x, node_mask)
 
@@ -33,31 +40,33 @@ def train_epoch(args, loader, epoch, model, model_dp, model_ema, ema, device, dt
             x = x + eps * args.augment_noise
 
         x = remove_mean_with_mask(x, node_mask)
-        if args.data_augmentation:
-            x = utils.random_rotation(x).detach()
+        # if args.data_augmentation:
+        #     x = utils.random_rotation(x).detach()
 
-        check_mask_correct([x, one_hot, charges], node_mask)
+        # check_mask_correct([x, one_hot, charges], node_mask)
+        check_mask_correct([x], node_mask)
         assert_mean_zero_with_mask(x, node_mask)
 
-        h = {'categorical': one_hot, 'integer': charges}
+        # h = {'categorical': one_hot, 'integer': charges}
+        h = {'categorical': one_hot, 'integer': i_seq}
 
-        if len(args.conditioning) > 0:
-            context = qm9utils.prepare_context(args.conditioning, data, property_norms).to(device, dtype)
-            assert_correctly_masked(context, node_mask)
-        else:
-            context = None
+        # if len(args.conditioning) > 0:
+        #     context = qm9utils.prepare_context(args.conditioning, data, property_norms).to(device, dtype)
+        #     assert_correctly_masked(context, node_mask)
+        # else:
+        #     context = None
 
         optim.zero_grad()
 
         # transform batch through flow
         nll, reg_term, mean_abs_z = losses.compute_loss_and_nll(args, model_dp, nodes_dist,
-                                                                x, h, node_mask, edge_mask, context)
+                                                                x, h, node_mask, edge_mask, context=None)
         # standard nll from forward KL
         loss = nll + args.ode_regularization * reg_term
         loss.backward()
 
         if args.clip_grad:
-            grad_norm = utils.gradient_clipping(model, gradnorm_queue)
+            grad_norm = gradient_clipping(model, gradnorm_queue)
         else:
             grad_norm = 0.
 

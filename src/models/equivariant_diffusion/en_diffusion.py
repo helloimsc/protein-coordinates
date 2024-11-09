@@ -601,6 +601,9 @@ class EnVariationalDiffusion(torch.nn.Module):
             n_samples=x.size(0), n_nodes=x.size(1), node_mask=node_mask)
 
         # Concatenate x, h[integer] and h[categorical].
+        print('x', x.size())
+        print('h[categorical]', h['categorical'].size())
+        print('h[integer]', h['integer'].size())
         xh = torch.cat([x, h['categorical'], h['integer']], dim=2)
         # Sample z_t given x, h for timestep t, from q(z_t | x, h)
         z_t = alpha_t * xh + sigma_t * eps

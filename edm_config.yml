@@ -1,17 +1,18 @@
-exp_name: 'debug_10'
+exp_name: 'pdb_trial'
 actnorm: True
 aggregation_method: 'sum'
 attention: True
 augment_noise: 0
-batch_size: 128
+batch_size: 4
 break_train_epoch: False
 brute_force: False
 clip_grad: True
 condition_time: True
 conditioning: []
+context_node_nf: 0
 data_augmentation: False
-datadir: 'qm9/temp'
-dataset: 'qm9'
+datadir: 'data/pdb_files'
+dataset: 'pdb'
 dequantization: 'argmax_variational'
 diffusion_loss_type: 'l2'
 diffusion_noise_precision: 1e-5
@@ -21,7 +22,7 @@ dp: True
 ema_decay: 0.999
 filter_n_atoms: null
 generate_epochs: 1
-include_charges: True
+include_charges: False
 inv_sublayers: 1
 lr: 2e-4
 model: 'egnn_dynamics'
@@ -34,6 +35,7 @@ no_cuda: false
 no_wandb: false
 normalize_factors: [1, 4, 1]
 normalization_factor: 1
+norm_constant: 1
 num_workers: 0
 ode_regularization: 1e-3
 online: true
@@ -47,4 +49,4 @@ tanh: True
 test_epochs: 10
 trace: 'hutch'
 visualize_every_batch: 1e8
-wandb_usr: null
+wandb_usr: jerhanwl

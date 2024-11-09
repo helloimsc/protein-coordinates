@@ -7,7 +7,8 @@ from torch.distributions.categorical import Categorical
 
 def get_model(args, device, dataset_info, dataloader_train):
     histogram = dataset_info['n_nodes']
-    in_node_nf = len(dataset_info['atom_decoder']) + int(args.include_charges)
+    # in_node_nf = len(dataset_info['atom_decoder']) + int(args.include_charges)
+    in_node_nf = len(dataset_info['atom_decoder']) + 1 # For i_seq
     nodes_dist = DistributionNodes(histogram)
 
     prop_dist = None

@@ -1,7 +1,7 @@
 import os
 
 import torch
-from src.utils import encode_aa, get_backbone
+from src.data_utils import encode_aa, get_backbone
 from torch.utils.data import Dataset
 from tqdm import tqdm
 

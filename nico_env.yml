@@ -15,6 +15,8 @@ dependencies:
   - numpy
   - scipy
   - dgl
+  - imageio
   - biopython
   - ipykernel
   - ipywidgets
+  - wandb

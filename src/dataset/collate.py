@@ -81,9 +81,15 @@ class PreprocessPDB:
         to_keep = (batch['i_seq'].sum(0) > 0)
 
         batch = {key: drop_zeros(prop, to_keep) for key, prop in batch.items()}
-        print(batch['i_seq'].size())
         atom_mask = batch['i_seq'] > 0
         batch['atom_mask'] = atom_mask
+
+        # Create one-hot encoding for 'i_seq'
+        print(batch['i_seq'].shape)
+        print(batch['i_seq'])
+        one_hot = torch.nn.functional.one_hot(batch['i_seq'].long(), num_classes=26)
+        batch['one_hot'] = one_hot
+        batch['i_seq'] = batch['i_seq'].unsqueeze(-1)
 
         #Obtain edges
         batch_size, n_nodes = atom_mask.size()

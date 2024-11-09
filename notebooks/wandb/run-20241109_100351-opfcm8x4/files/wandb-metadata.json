@@ -1,0 +1,16 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit",
+  "python": "3.11.10",
+  "startedAt": "2024-11-09T02:03:51.356057Z",
+  "program": "/Users/jeraldhan/Documents/NUS Computing/02 CS5284 - Graph Machine Learning/Project/protein-coordinates/notebooks/edm_testing.ipynb",
+  "git": {
+    "remote": "https://github.com/helloimsc/protein-coordinates.git",
+    "commit": "8b0d8b7bdf9100f6077142ab7096967ec364cde9"
+  },
+  "email": "e1331430@u.nus.edu",
+  "root": "/Users/jeraldhan/Documents/NUS Computing/02 CS5284 - Graph Machine Learning/Project/protein-coordinates/notebooks",
+  "host": "Jeralds-MacBook-Air.local",
+  "username": "jeraldhan",
+  "executable": "/opt/homebrew/Caskroom/miniconda/base/envs/gvp/bin/python",
+  "codePathLocal": "edm_testing.ipynb"
+}
