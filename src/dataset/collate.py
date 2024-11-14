@@ -85,8 +85,7 @@ class PreprocessPDB:
         batch['atom_mask'] = atom_mask
 
         # Create one-hot encoding for 'i_seq'
-        print(batch['i_seq'].shape)
-        print(batch['i_seq'])
+        # Group 'i_seq' into 10 groups by sequence
         one_hot = torch.nn.functional.one_hot(batch['i_seq'].long(), num_classes=26)
         batch['one_hot'] = one_hot
         batch['i_seq'] = batch['i_seq'].unsqueeze(-1)

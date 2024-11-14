@@ -505,8 +505,10 @@ class EnVariationalDiffusion(torch.nn.Module):
     def log_pxh_given_z0_without_constants(
             self, x, h, z_t, gamma_0, eps, net_out, node_mask, epsilon=1e-10):
         # Discrete properties are predicted directly from z_t.
-        z_h_cat = z_t[:, :, self.n_dims:-1] if self.include_charges else z_t[:, :, self.n_dims:]
-        z_h_int = z_t[:, :, -1:] if self.include_charges else torch.zeros(0).to(z_t.device)
+        z_h_cat = z_t[:, :, self.n_dims:-1] 
+        # if self.include_charges else z_t[:, :, self.n_dims:]
+        # z_h_int = z_t[:, :, -1:] if self.include_charges else torch.zeros(0).to(z_t.device)
+        z_h_int = z_t[:, :, -1:]
 
         # Take only part over x.
         eps_x = eps[:, :, :self.n_dims]
@@ -527,6 +529,8 @@ class EnVariationalDiffusion(torch.nn.Module):
 
         estimated_h_integer = z_h_int * self.norm_values[2] + self.norm_biases[2]
         estimated_h_cat = z_h_cat * self.norm_values[1] + self.norm_biases[1]
+        # print('h_integer', h_integer.size())
+        # print('estimated_h_integer', estimated_h_integer.size())
         assert h_integer.size() == estimated_h_integer.size()
 
         h_integer_centered = h_integer - estimated_h_integer
@@ -601,9 +605,9 @@ class EnVariationalDiffusion(torch.nn.Module):
             n_samples=x.size(0), n_nodes=x.size(1), node_mask=node_mask)
 
         # Concatenate x, h[integer] and h[categorical].
-        print('x', x.size())
-        print('h[categorical]', h['categorical'].size())
-        print('h[integer]', h['integer'].size())
+        # print('x', x.size())
+        # print('h[categorical]', h['categorical'].size())
+        # print('h[integer]', h['integer'].size())
         xh = torch.cat([x, h['categorical'], h['integer']], dim=2)
         # Sample z_t given x, h for timestep t, from q(z_t | x, h)
         z_t = alpha_t * xh + sigma_t * eps
