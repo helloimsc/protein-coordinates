@@ -7,7 +7,7 @@ import logging, socket, os
 from protein_residues import normal as RESIDUES
 from Bio.SeqUtils import seq1, seq3
 import dgl
-parser = PDBParser()
+parser = PDBParser(QUIET=True)
 
 #Sub-functions
 def PROCESS_RESIDUES(d):
@@ -22,7 +22,7 @@ def PROCESS_RESIDUES(d):
     return d
 
 def get_backbone(pdb_path,model_num=0):
-    #Returns a tuple (frames,seq) frames being a list of list of np arrays where each np array is one chain of size n_aa x 4. seq is a list of     #strings where each string is the one letter representation of each amino acid
+#Returns a tuple (frames,seq) frames being a list of list of np arrays where each np array is one chain of size n_aa x 4. seq is a list of     #strings where each string is the one letter representation of each amino acid
 #in each chain
 
     model = parser.get_structure('',pdb_path)[model_num]
@@ -32,14 +32,13 @@ def get_backbone(pdb_path,model_num=0):
         chain_coord = []
         chain_seq = ''
         for res in chain:
+            if (res.id[0] != ' ') or ('CA' not in res.child_dict) or (res.resname not in RESIDUES): continue
             chain_seq+=res.resname
-            #Might change the Cb portion of Gly
+        #Might change the Cb portion of Gly
             if res.resname=="GLY":
-                if (res.id[0] != ' ') or ('CA' not in res.child_dict) or (res.resname not in RESIDUES): continue
                 bb = np.stack((res["N"].coord,res["CA"].coord,res["C"].coord,np.array([0,0,0])),axis=0)
                 chain_coord.append(bb)
             else:
-                if (res.id[0] != ' ') or ('CA' not in res.child_dict) or (res.resname not in RESIDUES): continue
                 bb = np.stack((res["N"].coord,res["CA"].coord,res["C"].coord,res["CB"].coord),axis=0)
                 chain_coord.append(bb)
         chain_coord=np.array(chain_coord)
@@ -47,6 +46,7 @@ def get_backbone(pdb_path,model_num=0):
         seq.append(seq1(chain_seq))
     return frames,seq
 
+##
 def generate_vectors(frame):
     #The frames tensor is of shape (N x 4 x 3) Where for the -2 dim is N, CA, C, CB
     forward = frame[1:,1,:] - frame[:-1,1,:] #This doesn't include the foward vector for the nth aa
@@ -89,9 +89,10 @@ def _rbf(D, D_min=0., D_max=20., D_count=16, device='cpu'):
     return RBF
 
 #Create pre-defined variables and some small functions
-extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO"
-aa_to_int = { ch:i for i,ch in enumerate(extended_protein_letters) }
-int_to_aa = { i:ch for i,ch in enumerate(extended_protein_letters) }
+#extended_protein_letters = "ACDEFGHIKLMNPQRSTVWYBXZJUO"
+protein_letters = "ACDEFGHIKLMNPQRSTVWY"
+aa_to_int = { ch:i for i,ch in enumerate(protein_letters) }
+int_to_aa = { i:ch for i,ch in enumerate(protein_letters) }
 encode = lambda s: torch.tensor([aa_to_int[c] for c in s])
 decode = lambda l: ''.join([int_to_aa[i] for i in l])
 RESIDUES = PROCESS_RESIDUES(RESIDUES)
@@ -142,3 +143,46 @@ def generate_graph(pdb_path, k=10, rbf_dim=16, sc_dim=24, sc_n=10000):
     graph.edata['u_vec'] = direction
     
     return graph, i_seq
+
+def generate_fgraph(pdb_path, rbf_dim=16, sc_dim=24, sc_n=10000):
+    frames, seq = get_backbone(pdb_path)
+    frames = torch.tensor(np.array(frames[0]))
+    i_seq = encode(seq[0]) #This is a tensor of integers size N which represents the type of amino acid
+    forward, reverse, side = generate_vectors(frames)
+
+    #Construct DGL Graph
+    ca = frames[:,1,:]
+    dist = torch.cdist(ca,ca,p=2.0)
+    dist, idx=dist.sort()
+    idx = idx[:,:k]
+
+    
+    # Generate Graph (N.B. Need to remove edge to self)
+    n = ca.shape[0]
+    row = torch.arange(0, n).repeat(k)
+    col = idx.flatten()
+    graph = dgl.graph((row,col))
+
+    #Generate Node Features
+    forward, reverse, side = generate_vectors(frames)
+    graph.ndata['forward'] = forward
+    graph.ndata['reverse'] = reverse
+    graph.ndata['side'] = side
+    
+    #Generate Edge Features
+    #Euclidean Distance Embedding
+    rbf_dist = _rbf(dist[:,:k],D_count=rbf_dim)
+    graph.edata['rbf_dist']=rbf_dist.flatten(end_dim=-2)
+
+    #Sequential Distance Sinusiodal Embedding
+    t = row-col
+    t = sc_embed(t.unsqueeze(dim=-1), embed_dim=sc_dim, n=sc_n)
+    graph.edata['seq_embed'] = t 
+    
+    # Unit Vector 
+    j = ca[row,:]
+    i = ca[col,:]
+    direction = j-i
+    direction = direction/torch.norm(direction,p=2.0,dim=-1)[:,None]
+    graph.edata['u_vec'] = direction
+    return graph,i_seq
