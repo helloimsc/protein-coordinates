@@ -1,0 +1,13 @@
+__pycache__
+cath_pdb_files
+cath_pdb_files/*
+cath_proteins
+cath_proteins/cath-b-newest-all
+cath_proteins/cath-b-newest-all.gz
+cath_proteins/cath-dataset-nonredundant-S[20|40].pdb.tgz
+data/clean_pdb_id.txt
+data
+data/dompdb/*
+utils
+obsolete
+.DS_Store
