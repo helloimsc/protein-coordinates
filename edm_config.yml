@@ -3,7 +3,7 @@ actnorm: True
 aggregation_method: 'sum'
 attention: True
 augment_noise: 0
-batch_size: 4
+batch_size: 8
 break_train_epoch: False
 brute_force: False
 clip_grad: True

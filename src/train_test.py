@@ -6,9 +6,6 @@ import src.qm9.visualizer as vis
 import torch
 import wandb
 from src.model_utils import *
-
-# from qm9.analyze import analyze_stability_for_molecules
-# from qm9.sampling import sample, sample_chain, sample_sweep_conditional
 from src.models import losses
 from src.models.equivariant_diffusion.utils import (
     assert_correctly_masked,
@@ -16,6 +13,9 @@ from src.models.equivariant_diffusion.utils import (
     remove_mean_with_mask,
     sample_center_gravity_zero_gaussian_with_mask,
 )
+
+# from qm9.analyze import analyze_stability_for_molecules
+from src.qm9.sampling import sample, sample_chain, sample_sweep_conditional
 
 
 def train_epoch(args, loader, epoch, model, model_dp, model_ema, ema, device, dtype, property_norms, optim,
@@ -82,26 +82,28 @@ def train_epoch(args, loader, epoch, model, model_dp, model_ema, ema, device, dt
                   f"RegTerm: {reg_term.item():.1f}, "
                   f"GradNorm: {grad_norm:.1f}")
         nll_epoch.append(nll.item())
-        if (epoch % args.test_epochs == 0) and (i % args.visualize_every_batch == 0) and not (epoch == 0 and i == 0):
-            start = time.time()
-            # if len(args.conditioning) > 0:
-            #     save_and_sample_conditional(args, device, model_ema, prop_dist, dataset_info, epoch=epoch)
-            # save_and_sample_chain(model_ema, args, device, dataset_info, prop_dist, epoch=epoch,
-            #                       batch_id=str(i))
-            # sample_different_sizes_and_save(model_ema, nodes_dist, args, device, dataset_info,
-            #                                 prop_dist, epoch=epoch)
-            # print(f'Sampling took {time.time() - start:.2f} seconds')
+        # if (epoch % args.test_epochs == 0) and (i % args.visualize_every_batch == 0) and not (epoch == 0 and i == 0):
+        #     start = time.time()
+        #     # if len(args.conditioning) > 0:
+        #     #     save_and_sample_conditional(args, device, model_ema, prop_dist, dataset_info, epoch=epoch)
+        #     save_and_sample_chain(model_ema, args, device, dataset_info, prop_dist, epoch=epoch,
+        #                           batch_id=str(i))
+        #     sample_different_sizes_and_save(model_ema, nodes_dist, args, device, dataset_info,
+        #                                     prop_dist, epoch=epoch)
+        #     print(f'Sampling took {time.time() - start:.2f} seconds')
 
-            vis.visualize(f"outputs/{args.exp_name}/epoch_{epoch}_{i}", dataset_info=dataset_info, wandb=wandb)
-            vis.visualize_chain(f"outputs/{args.exp_name}/epoch_{epoch}_{i}/chain/", dataset_info, wandb=wandb)
-            if len(args.conditioning) > 0:
-                vis.visualize_chain("outputs/%s/epoch_%d/conditional/" % (args.exp_name, epoch), dataset_info,
-                                    wandb=wandb, mode='conditional')
-        # wandb.log({"Batch NLL": nll.item()}, commit=True)
+        #     vis.visualize(f"outputs/{args.exp_name}/epoch_{epoch}_{i}", dataset_info=dataset_info, wandb=wandb)
+        #     vis.visualize_chain(f"outputs/{args.exp_name}/epoch_{epoch}_{i}/chain/", dataset_info, wandb=wandb)
+        #     if len(args.conditioning) > 0:
+        #         vis.visualize_chain("outputs/%s/epoch_%d/conditional/" % (args.exp_name, epoch), dataset_info,
+        #                             wandb=wandb, mode='conditional')
+        wandb.log({"Batch NLL": nll.item()}, commit=True)
         if args.break_train_epoch:
             break
-    # wandb.log({"Train Epoch NLL": np.mean(nll_epoch)}, commit=False)
-    return np.mean(nll_epoch)
+    wandb.log({"Train Epoch NLL": np.mean(nll_epoch)}, commit=False)
+    torch.cuda.empty_cache()
+    print(f"Train Epoch {epoch} NLL: {np.mean(nll_epoch):.3f}")
+    return np.mean(nll_epoch), nll_epoch
 
 def check_mask_correct(variables, node_mask):
     for i, variable in enumerate(variables):
@@ -159,15 +161,15 @@ def test(args, loader, epoch, eval_model, device, dtype, property_norms, nodes_d
     return nll_epoch/n_samples
 
 
-# def save_and_sample_chain(model, args, device, dataset_info, prop_dist,
-#                           epoch=0, id_from=0, batch_id=''):
-#     one_hot, charges, x = sample_chain(args=args, device=device, flow=model,
-#                                        n_tries=1, dataset_info=dataset_info, prop_dist=prop_dist)
+def save_and_sample_chain(model, args, device, dataset_info, prop_dist,
+                          epoch=0, id_from=0, batch_id=''):
+    one_hot, charges, x = sample_chain(args=args, device=device, flow=model,
+                                       n_tries=1, dataset_info=dataset_info, prop_dist=prop_dist)
 
-#     vis.save_xyz_file(f'outputs/{args.exp_name}/epoch_{epoch}_{batch_id}/chain/',
-#                       one_hot, charges, x, dataset_info, id_from, name='chain')
+    vis.save_xyz_file(f'outputs/{args.exp_name}/epoch_{epoch}_{batch_id}/chain/',
+                      one_hot, charges, x, dataset_info, id_from, name='chain')
 
-#     return one_hot, charges, x
+    return one_hot, charges, x
 
 
 def sample_different_sizes_and_save(model, nodes_dist, args, device, dataset_info, prop_dist,
