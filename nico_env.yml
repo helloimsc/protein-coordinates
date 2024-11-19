@@ -1,0 +1,22 @@
+name: gvp
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch
+  - matplotlib
+  - pandas
+  - seaborn
+  - scikit-learn
+  - torchvision
+  - numpy
+  - scipy
+  - dgl
+  - imageio
+  - biopython
+  - ipykernel
+  - ipywidgets
+  - wandb
