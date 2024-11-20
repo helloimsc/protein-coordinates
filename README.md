@@ -22,7 +22,7 @@ Initially we looked at modifying GVP model (https://openreview.net/forum?id=1YLJ
 - `igso3.py` We initially considered representing the directionality of the amino acid's side chain as a unit vector, consequently a different kind of diffusion is necessary. i.e., we need to diffuse the direction of said unit vector while maintaining it's magnitude. igso3 diffusion diffuses the angle of the unit vector to a uniform distribution. (See https://openreview.net/pdf?id=oDRQGo8I7P)
 -  `modified_diffusion.py` Wrapper object combining conventional DDPM diffusion and igso3 diffusion
 ### Equivariant Diffusion
-
+- `2_1_edm_testing.ipynb` - Equivariant Diffusion Model
 
 ### Latent Diffusion 
 - `3_1_protein_latent_diffusion.ipynb` - the main Latent Diffusion for Protein Notebook
