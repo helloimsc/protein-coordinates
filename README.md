@@ -18,7 +18,11 @@ A project for CS5284
 #### Python Scripts
 Initially we looked at modifying GVP model (https://openreview.net/forum?id=1YLJDvSx6J4) to our use case. Nevertheless, this was dropped as generating structures from their input embeddings is non-trivial and would take too much time. 
 - `data_read.py` Several functions to extract atom coordinates, constrcut kNN graphs of proteins, radial basis function embeddings as proposed by the GVP
-#####  Unused
+#### Misc
+- `train_list.csv` The PDB IDs that the model was trained on
+- `val_list.csv` PDB IDs that were not trained on, we use some of the sequences here to generate the protein structures
+- `./generated_pdb/` Some of the predicted protein structures, we recommend using ChimeraX/PyMol for visualization
+####  Unused
 - `igso3.py` We initially considered representing the directionality of the amino acid's side chain as a unit vector, consequently a different kind of diffusion is necessary. i.e., we need to diffuse the direction of said unit vector while maintaining it's magnitude. igso3 diffusion diffuses the angle of the unit vector to a uniform distribution. (See https://openreview.net/pdf?id=oDRQGo8I7P)
 -  `modified_diffusion.py` Wrapper object combining conventional DDPM diffusion and igso3 diffusion
 ### Equivariant Diffusion
